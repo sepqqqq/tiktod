@@ -1,6 +1,6 @@
 # neipzyy
 
-Benerin lagi bagian building
+Sudah bisaaa woi horre tapi api tiktoknya gak bisa padahal sebelumnya bisaaaa
 
 ## Getting Started
 
