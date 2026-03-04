@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {
   const url = request.nextUrl.searchParams.get("url");
-  let filename = request.nextUrl.searchParams.get("filename") || "download.mp4";
+  let filename = request.nextUrl.searchParams.get("filename") || "download";
 
   if (!url) {
     return NextResponse.json({ error: "URL is required" }, { status: 400 });
@@ -22,36 +22,37 @@ export async function GET(request: NextRequest) {
       throw new Error(`Source returned status ${response.status}`);
     }
 
-    // 2. Improve Content-Type detection
+    // 2. Content-Type determination
     let contentType = response.headers.get("content-type") || "application/octet-stream";
     
-    // STRICT OVERRIDE based on filename to prevent MP4 becoming MP3
-    // AND apply custom names requested by user
+    // STRICT OVERRIDE FOR FILENAMES
     const lowerFilename = filename.toLowerCase();
     let finalFilename = filename;
 
-    if (lowerFilename.includes("hd")) {
+    if (lowerFilename.includes("hdvideo")) {
       finalFilename = "neipzyyhdvideo.mp4";
       contentType = "video/mp4";
-    } else if (lowerFilename.includes("wm")) {
+    } else if (lowerFilename.includes("withwm")) {
       finalFilename = "neipzyywithwm.mp4";
       contentType = "video/mp4";
-    } else if (lowerFilename.includes("audio") || lowerFilename.endsWith(".mp3") || (contentType.includes("audio") && !lowerFilename.includes("video"))) {
+    } else if (lowerFilename.includes("mp3")) {
       finalFilename = "neipzyymp3.mp3";
       contentType = "audio/mpeg";
-    } else if (lowerFilename.includes("photo") || lowerFilename.includes("slide")) {
+    } else if (lowerFilename.includes("slide")) {
       finalFilename = `neipzyyslide-${Date.now()}.jpg`;
       contentType = "image/jpeg";
+    } else {
+      // Fallback
+      if (contentType.includes("video")) finalFilename = `${filename}.mp4`;
+      else if (contentType.includes("audio")) finalFilename = `${filename}.mp3`;
+      else if (contentType.includes("image")) finalFilename = `${filename}.jpg`;
     }
 
-    // Ensure the filename ends with the correct extension if missing
-    if (contentType === "video/mp4" && !finalFilename.endsWith(".mp4")) {
-      finalFilename += ".mp4";
-    } else if (contentType === "audio/mpeg" && !finalFilename.endsWith(".mp3")) {
-      finalFilename += ".mp3";
-    }
+    // Ensure extensions are present
+    if (contentType === "video/mp4" && !finalFilename.endsWith(".mp4")) finalFilename += ".mp4";
+    if (contentType === "audio/mpeg" && !finalFilename.endsWith(".mp3")) finalFilename += ".mp3";
+    if (contentType === "image/jpeg" && !finalFilename.endsWith(".jpg")) finalFilename += ".jpg";
 
-    // 3. Set download headers
     const headers = new Headers();
     headers.set("Content-Type", contentType);
     headers.set("Content-Disposition", `attachment; filename="${finalFilename}"`);
@@ -60,13 +61,11 @@ export async function GET(request: NextRequest) {
     headers.set("Pragma", "no-cache");
     headers.set("Expires", "0");
     
-    // Helpful headers for better download experience
     const contentLength = response.headers.get("content-length");
     if (contentLength) {
       headers.set("Content-Length", contentLength);
     }
 
-    // 4. Return the data as a stream
     return new Response(response.body, {
       status: 200,
       headers,

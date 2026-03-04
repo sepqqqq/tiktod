@@ -1,6 +1,6 @@
 # neipzyy
 
-Sekarang sesuai sedikit soalnya aku mau deploy webnya di netlify.com 
+Err woi bagian instalizing di netlify benerin lagii
 
 ## Getting Started
 

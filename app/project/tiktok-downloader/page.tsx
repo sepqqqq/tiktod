@@ -96,24 +96,30 @@ export default function TikTokDownloaderPage() {
     }
     
     try {
-      // Force sequential download fix: use a temporary unique link each time
-      // and ensure the browser treats it as a fresh request
       const filename = type === "hd" ? "neipzyyhdvideo" : type === "wm" ? "neipzyywithwm" : type === "audio" ? "neipzyymp3" : "neipzyyslide";
       const timestamp = new Date().getTime();
-      const downloadApiUrl = `/api/download?url=${encodeURIComponent(downloadUrl)}&filename=${filename}&v=${timestamp}_${Math.random().toString(36).substring(7)}`;
+      const downloadApiUrl = `/api/download?url=${encodeURIComponent(downloadUrl)}&filename=${filename}&v=${timestamp}`;
       
-      // Creating a unique iframe for each download to prevent "stuck" state in some browsers
-      const iframe = document.createElement('iframe');
-      iframe.style.display = 'none';
-      iframe.src = downloadApiUrl;
-      document.body.appendChild(iframe);
+      const res = await fetch(downloadApiUrl);
+      if (!res.ok) throw new Error(`Download API returned ${res.status}`);
       
-      // Clean up after 5 minutes (plenty of time for download to start)
-      setTimeout(() => {
-        document.body.removeChild(iframe);
-      }, 300000);
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
       
-      addLog(`Download requested: ${type.toUpperCase()} (ID: ${timestamp})`);
+      let ext = ".mp4";
+      if (type === "audio") ext = ".mp3";
+      if (type === "slide") ext = ".jpg";
+      
+      a.download = `${filename}${ext}`;
+      document.body.appendChild(a);
+      a.click();
+      
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
     } catch (error: any) {
       addLog(`Download Exception: ${error.message}`);
     }
