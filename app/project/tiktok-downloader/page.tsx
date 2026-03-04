@@ -18,11 +18,23 @@ import {
   Zap,
   FileDown,
   Layers,
-  AlertCircle
+  AlertCircle,
+  XCircle,
+  History
 } from "lucide-react";
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogDescription, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogFooter,
+  DialogClose
+} from "@/components/ui/dialog";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
+import { useEffect } from "react";
 
 interface TikTokData {
   creator: string;
@@ -60,15 +72,16 @@ export default function TikTokDownloaderPage() {
   const [selectedPhotos, setSelectedPhotos] = useState<number[]>([]);
   const [downloadingStates, setDownloadingStates] = useState<Record<string, boolean>>({});
   const [dbStatus, setDbStatus] = useState<boolean>(false);
+  const [showFilterDialog, setShowFilterDialog] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-  useState(() => {
+  useEffect(() => {
     // Initial DB check
     fetch("/api/tiktok?check=db")
       .then(r => r.json())
       .then(d => setDbStatus(!!d.enabled))
       .catch(() => setDbStatus(false));
-  });
+  }, []);
 
   const addLog = (msg: string) => {
     setErrorLog(prev => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev].slice(0, 5));
@@ -78,49 +91,58 @@ export default function TikTokDownloaderPage() {
     setDownloadingStates(prev => ({ ...prev, [type]: isLoading }));
   };
 
+  const cleanUrl = (input: string) => {
+    try {
+      const urlObj = new URL(input.trim());
+      // Tracker params like is_from_webapp, etc. cause duplicate DB entries
+      // Only keep the main part of the URL
+      const normalized = urlObj.origin + urlObj.pathname;
+      return normalized;
+    } catch {
+      return input.trim();
+    }
+  };
+
   const handleFetch = async (targetUrl?: string) => {
-    const finalUrl = (targetUrl || url).trim();
-    if (!finalUrl) {
+    const rawUrl = (targetUrl || url).trim();
+    if (!rawUrl) {
       toast.error("Please paste a link first!");
       return;
     }
 
     // TIKTOK URL VALIDATION
     const tiktokRegex = /tiktok\.com|vt\.tiktok\.com|vm\.tiktok\.com/;
-    if (!tiktokRegex.test(finalUrl)) {
-      toast.error("Invalid Link!", {
-        description: "Please enter a valid TikTok URL.",
-        icon: <AlertCircle className="h-5 w-5 text-destructive" />
-      });
+    if (!tiktokRegex.test(rawUrl)) {
+      setShowFilterDialog(true);
       return;
     }
     
+    // Normalize URL before fetching
+    const finalUrl = cleanUrl(rawUrl);
+    
     setLoading(true);
-    setData(null);
+    setData(null); 
     setSelectedPhotos([]);
     setErrorLog([]);
 
     try {
-      toast.promise(
-        fetch(`/api/tiktok?url=${encodeURIComponent(finalUrl)}`).then(async res => {
-          if (!res.ok) throw new Error(`API error: ${res.status}`);
-          const result = await res.json();
-          if (result.status && result.result?.data) {
-            setData(result);
-            addLog("Data successfully analyzed.");
-            return result;
-          } else {
-            throw new Error(result.message || "Failed to analyze link.");
-          }
-        }),
-        {
-          loading: 'Analyzing content...',
-          success: 'Content successfully analyzed!',
-          error: (err) => `Analysis failed: ${err.message}`,
-        }
-      );
+      const timestamp = new Date().getTime();
+      const res = await fetch(`/api/tiktok?url=${encodeURIComponent(finalUrl)}&t=${timestamp}`);
+      
+      if (!res.ok) throw new Error(`API error: ${res.status}`);
+      
+      const result = await res.json();
+      
+      if (result.status && result.result?.data) {
+        setData(result);
+        addLog(`Successfully analyzed: ${finalUrl.substring(0, 30)}...`);
+        toast.success('Content successfully analyzed!');
+      } else {
+        throw new Error(result.message || "Failed to analyze link.");
+      }
     } catch (error: any) {
       addLog(`Fetch Error: ${error.message}`);
+      toast.error(`Analysis failed: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -434,6 +456,28 @@ export default function TikTokDownloaderPage() {
             </div>
          </div>
       </div>
+
+      {/* FILTER POPUP (MODAL) */}
+      <Dialog open={showFilterDialog} onOpenChange={setShowFilterDialog}>
+        <DialogContent className="max-w-[350px] rounded-3xl border-primary/20 bg-card/95 backdrop-blur-xl">
+           <DialogHeader className="items-center text-center space-y-4">
+              <div className="p-4 bg-destructive/10 rounded-full">
+                 <XCircle className="h-10 w-10 text-destructive" />
+              </div>
+              <DialogTitle className="text-xl font-black uppercase tracking-tight">Invalid Link Detected!</DialogTitle>
+              <DialogDescription className="text-[11px] font-medium leading-relaxed uppercase tracking-wider text-muted-foreground">
+                 Oops! The link you pasted is not a valid TikTok URL. Please make sure you copy the link directly from the TikTok app.
+              </DialogDescription>
+           </DialogHeader>
+           <DialogFooter className="sm:justify-center mt-4">
+              <DialogClose asChild>
+                 <Button className="w-full h-12 rounded-2xl bg-primary hover:bg-primary/90 text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/20">
+                    I Understand
+                 </Button>
+              </DialogClose>
+           </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

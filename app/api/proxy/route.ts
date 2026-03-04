@@ -29,7 +29,8 @@ export async function GET(request: NextRequest) {
     return new Response(body, {
       headers: {
         "Content-Type": contentType,
-        "Cache-Control": "public, max-age=86400",
+        "Cache-Control": "no-store, max-age=0, must-revalidate",
+        "Pragma": "no-cache",
         "Access-Control-Allow-Origin": "*",
         "Vary": "Accept-Encoding",
       },

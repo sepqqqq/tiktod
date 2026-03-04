@@ -1,6 +1,6 @@
 # neipzyy
 
-Bugnya masi sama thumbnailnya kok gituu ya tolong teliti lagii dan tambahkan popup filter fungsinya mendeteksi itu url tiktok atau bukan supaya aku bisa tidur nyenyak
+Dari pengamatan ku sepertinya ini masalahnya di database yang nyimpan cache video sebelumnyaa jadi kek thumbnail pp itu ngambil fotonya dari database dan intinya ini dari analisaku di databasenya sih soalnya pas aku awal awal download thumbnail normal nah terus pas aku ganti link thumbnail video sebelumnya Masi ke bawa di video terbaru dan video atau slide selanjutnya itu make thumbnail video yang pertama kali
 
 ## Getting Started
 

@@ -21,43 +21,20 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // 1. Check database first (cache/history) - Wrap in safety
+    // 1. Database logic - Use as Fallback, NOT early return
     let existing = null;
     const isDbConfigured = !!process.env.TURSO_DATABASE_URL && process.env.TURSO_DATABASE_URL !== "https://placeholder.turso.io";
 
-    if (isDbConfigured) {
-      try {
-        existing = await db.query.downloads.findFirst({
-          where: eq(downloads.url, url),
-        });
-      } catch (dbReadError) {
-        console.warn("[TikTok API] Database Read Error (skipping cache):", dbReadError);
-      }
-    }
-
-    if (existing) {
-      console.log("[TikTok API] Returning cached data for:", url);
-      try {
-        const cachedData = JSON.parse(existing.data);
-        // Ensure images/slideshow detection even in cache
-        if (cachedData.result?.data?.images?.length > 0 && !cachedData.result.data.cover?.includes("http")) {
-           cachedData.result.data.cover = cachedData.result.data.images[0];
-        }
-        return NextResponse.json(cachedData);
-      } catch (parseError) {
-        console.error("[TikTok API] Cache Parse Error:", parseError);
-      }
-    }
-
-    // 2. Fetch from External API with Timeout
+    // 2. Fetch Fresh Data First (Always)
     console.log("[TikTok API] Fetching fresh data for:", url);
     
-    // Attempt 1: Primary API with 5s timeout
     let data: any = null;
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    let fetchError: string | null = null;
 
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000); // Increased timeout
+
       const response = await fetch(
         `https://api.fikmydomainsz.xyz/download/tiktok-v2?url=${encodeURIComponent(url)}`,
         { 
@@ -71,33 +48,22 @@ export async function GET(request: NextRequest) {
         const result = await response.json();
         if (result.status && result.result?.data) {
           data = result;
-          // Robust Cover Selection
-          const apiData = data.result.data;
-          // If images exist (slideshow), prioritize the first image as thumbnail
-          if (apiData.images?.length > 0) {
-            apiData.cover = apiData.images[0];
-          } 
-          // If no images, check if current cover is an avatar or missing
-          else if (!apiData.cover || apiData.cover.includes("avatar") || apiData.cover.includes("musically")) {
-            // Try to find a real video cover
-            apiData.cover = apiData.origin_cover || apiData.cover || "";
-          }
         }
       }
-    } catch (e) {
-      console.warn("[TikTok API] Primary API Failed or Timed out:", e);
+    } catch (e: any) {
+      console.warn("[TikTok API] Primary API Failed:", e.message);
+      fetchError = e.message;
     }
 
-    // Attempt 2: Fallback API (TikWM) if Primary failed
+    // Attempt Fallback API
     if (!data) {
       try {
-        console.log("[TikTok API] Trying Fallback API (TikWM)...");
+        console.log("[TikTok API] Trying Fallback API...");
         const response = await fetch(`https://www.tikwm.com/api/?url=${encodeURIComponent(url)}`);
         const result = await response.json();
         
         if (result.code === 0 && result.data) {
           const resData = result.data;
-          // Normalize TikWM data
           data = {
             status: true,
             result: {
@@ -112,7 +78,7 @@ export async function GET(request: NextRequest) {
                   title: resData.music_info?.title || resData.title || "Music",
                   play: resData.music_info?.play || resData.music || "",
                   cover: resData.music_info?.cover || resData.cover || "",
-                  author: resData.music_info?.author || resData.author?.nickname || "Author",
+                  author: resData.music_info?.author || "Author",
                 },
                 author: {
                   nickname: resData.author?.nickname || "User",
@@ -120,8 +86,7 @@ export async function GET(request: NextRequest) {
                   unique_id: resData.author?.unique_id || "",
                 },
                 images: resData.images || [],
-                // Ensure cover is correct for TikWM too
-                cover: resData.images?.length > 0 ? resData.images[0] : (resData.cover || resData.origin_cover || ""),
+                cover: resData.cover || resData.origin_cover || "",
               }
             }
           };
@@ -131,41 +96,66 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // 3. Fallback to Database if both APIs failed
+    if (!data && isDbConfigured) {
+      try {
+        console.log("[TikTok API] APIs failed, checking DB for fallback...");
+        existing = await db.query.downloads.findFirst({
+          where: eq(downloads.url, url),
+        });
+        if (existing) {
+          data = JSON.parse(existing.data);
+          console.log("[TikTok API] Found fallback data in DB.");
+        }
+      } catch (dbReadError) {
+        console.warn("[TikTok API] DB Fallback Error:", dbReadError);
+      }
+    }
+
     if (!data) {
-      throw new Error("TikTok API is currently unstable. Please try another link or wait a moment.");
+      throw new Error(fetchError || "Failed to fetch content from all sources.");
     }
 
-    if (data.result.data.images?.length > 0) {
-      // Force the first image as the cover for slideshows
-      data.result.data.cover = data.result.data.images[0];
-    } else if (!data.result.data.cover || data.result.data.cover.includes("avatar")) {
-      // For videos, if cover is still an avatar, try to find the video cover
-      data.result.data.cover = data.result.data.origin_cover || data.result.data.play || "";
+    // Robust Image/Cover Handling
+    const apiData = data.result.data;
+    if (apiData.images && apiData.images.length > 0) {
+      apiData.cover = apiData.images[0]; // Force first image as cover for slides
+    } else if (!apiData.cover || apiData.cover.includes("avatar") || apiData.cover.includes("musically")) {
+      apiData.cover = apiData.origin_cover || apiData.play || apiData.cover || "";
     }
 
-    // 3. Store in database if successful
-    if (data.status && data.result?.data && isDbConfigured) {
+    // 4. Update Database with FRESH data (Cache Write)
+    if (isDbConfigured) {
       try {
         await db.insert(downloads).values({
           id: nanoid(),
           url: url,
-          title: data.result.data.title || "No Title",
-          cover: data.result.data.cover || "",
-          author: data.result.data.author?.nickname || "Unknown",
+          title: apiData.title || "No Title",
+          cover: apiData.cover || "",
+          author: apiData.author?.nickname || "Unknown",
           data: JSON.stringify(data),
         }).onConflictDoUpdate({
           target: downloads.url,
           set: {
+            title: apiData.title || "No Title",
+            cover: apiData.cover || "",
             data: JSON.stringify(data),
             createdAt: new Date(),
           },
         });
       } catch (dbError) {
-        console.error("[TikTok API] Database Insert Error:", dbError);
+        console.error("[TikTok API] Database Update Error:", dbError);
       }
     }
 
-    return NextResponse.json(data);
+    return new NextResponse(JSON.stringify(data), {
+      headers: {
+        "Content-Type": "application/json",
+        "Cache-Control": "no-store, max-age=0, must-revalidate",
+        "Pragma": "no-cache",
+      },
+    });
+
   } catch (error: any) {
     console.error("[TikTok API] Final Error:", error);
     return NextResponse.json(
