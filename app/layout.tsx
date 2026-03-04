@@ -44,6 +44,8 @@ export default function RootLayout({
         <title>Hananeipzyy Dev</title>
         <meta name="description" content="Portofolio and Digital Tools by Hananeipzyy" />
         <link rel="icon" type="image/jpeg" href="https://files.catbox.moe/wpn1w3.jpg" />
+        <link rel="icon" type="image/png" href="https://files.catbox.moe/wpn1w3.jpg" />
+        <link rel="shortcut icon" href="https://files.catbox.moe/wpn1w3.jpg" />
         <link rel="apple-touch-icon" href="https://files.catbox.moe/wpn1w3.jpg" />
       </head>
       <body className="bg-background text-foreground antialiased selection:bg-primary/30 selection:text-primary overflow-x-hidden">

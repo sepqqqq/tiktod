@@ -36,12 +36,19 @@ export async function GET(request: NextRequest) {
     } else if (lowerFilename.includes("wm")) {
       finalFilename = "neipzyywithwm.mp4";
       contentType = "video/mp4";
-    } else if (lowerFilename.includes("audio") || lowerFilename.endsWith(".mp3")) {
+    } else if (lowerFilename.includes("audio") || lowerFilename.endsWith(".mp3") || (contentType.includes("audio") && !lowerFilename.includes("video"))) {
       finalFilename = "neipzyymp3.mp3";
       contentType = "audio/mpeg";
     } else if (lowerFilename.includes("photo") || lowerFilename.includes("slide")) {
       finalFilename = `neipzyyslide-${Date.now()}.jpg`;
       contentType = "image/jpeg";
+    }
+
+    // Ensure the filename ends with the correct extension if missing
+    if (contentType === "video/mp4" && !finalFilename.endsWith(".mp4")) {
+      finalFilename += ".mp4";
+    } else if (contentType === "audio/mpeg" && !finalFilename.endsWith(".mp3")) {
+      finalFilename += ".mp3";
     }
 
     // 3. Set download headers
@@ -50,6 +57,8 @@ export async function GET(request: NextRequest) {
     headers.set("Content-Disposition", `attachment; filename="${finalFilename}"`);
     headers.set("Access-Control-Allow-Origin", "*");
     headers.set("Cache-Control", "no-cache, no-store, must-revalidate");
+    headers.set("Pragma", "no-cache");
+    headers.set("Expires", "0");
     
     // Helpful headers for better download experience
     const contentLength = response.headers.get("content-length");

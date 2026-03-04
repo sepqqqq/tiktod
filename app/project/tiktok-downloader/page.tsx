@@ -96,21 +96,24 @@ export default function TikTokDownloaderPage() {
     }
     
     try {
-      // Direct anchor download to bypass sequential download issues
+      // Force sequential download fix: use a temporary unique link each time
+      // and ensure the browser treats it as a fresh request
       const filename = type === "hd" ? "neipzyyhdvideo" : type === "wm" ? "neipzyywithwm" : type === "audio" ? "neipzyymp3" : "neipzyyslide";
-      const downloadApiUrl = `/api/download?url=${encodeURIComponent(downloadUrl)}&filename=${filename}&v=${Date.now()}_${Math.random()}`;
+      const timestamp = new Date().getTime();
+      const downloadApiUrl = `/api/download?url=${encodeURIComponent(downloadUrl)}&filename=${filename}&v=${timestamp}_${Math.random().toString(36).substring(7)}`;
       
-      const a = document.createElement('a');
-      a.href = downloadApiUrl;
-      a.style.display = 'none';
-      document.body.appendChild(a);
-      a.click();
+      // Creating a unique iframe for each download to prevent "stuck" state in some browsers
+      const iframe = document.createElement('iframe');
+      iframe.style.display = 'none';
+      iframe.src = downloadApiUrl;
+      document.body.appendChild(iframe);
       
+      // Clean up after 5 minutes (plenty of time for download to start)
       setTimeout(() => {
-        document.body.removeChild(a);
-      }, 150);
+        document.body.removeChild(iframe);
+      }, 300000);
       
-      addLog(`Download requested: ${type.toUpperCase()}`);
+      addLog(`Download requested: ${type.toUpperCase()} (ID: ${timestamp})`);
     } catch (error: any) {
       addLog(`Download Exception: ${error.message}`);
     }
