@@ -17,10 +17,12 @@ import {
   Smartphone,
   Zap,
   FileDown,
-  Layers
+  Layers,
+  AlertCircle
 } from "lucide-react";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "sonner";
 
 interface TikTokData {
   creator: string;
@@ -57,7 +59,16 @@ export default function TikTokDownloaderPage() {
   const [errorLog, setErrorLog] = useState<string[]>([]);
   const [selectedPhotos, setSelectedPhotos] = useState<number[]>([]);
   const [downloadingStates, setDownloadingStates] = useState<Record<string, boolean>>({});
+  const [dbStatus, setDbStatus] = useState<boolean>(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  useState(() => {
+    // Initial DB check
+    fetch("/api/tiktok?check=db")
+      .then(r => r.json())
+      .then(d => setDbStatus(!!d.enabled))
+      .catch(() => setDbStatus(false));
+  });
 
   const addLog = (msg: string) => {
     setErrorLog(prev => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev].slice(0, 5));
@@ -68,8 +79,21 @@ export default function TikTokDownloaderPage() {
   };
 
   const handleFetch = async (targetUrl?: string) => {
-    const finalUrl = targetUrl || url;
-    if (!finalUrl.trim()) return;
+    const finalUrl = (targetUrl || url).trim();
+    if (!finalUrl) {
+      toast.error("Please paste a link first!");
+      return;
+    }
+
+    // TIKTOK URL VALIDATION
+    const tiktokRegex = /tiktok\.com|vt\.tiktok\.com|vm\.tiktok\.com/;
+    if (!tiktokRegex.test(finalUrl)) {
+      toast.error("Invalid Link!", {
+        description: "Please enter a valid TikTok URL.",
+        icon: <AlertCircle className="h-5 w-5 text-destructive" />
+      });
+      return;
+    }
     
     setLoading(true);
     setData(null);
@@ -77,16 +101,24 @@ export default function TikTokDownloaderPage() {
     setErrorLog([]);
 
     try {
-      const res = await fetch(`/api/tiktok?url=${encodeURIComponent(finalUrl)}`);
-      if (!res.ok) throw new Error(`API error: ${res.status}`);
-      const result = await res.json();
-
-      if (result.status && result.result?.data) {
-        setData(result);
-        addLog("Data successfully analyzed.");
-      } else {
-        addLog(`Error: ${result.message || "Invalid data structure"}`);
-      }
+      toast.promise(
+        fetch(`/api/tiktok?url=${encodeURIComponent(finalUrl)}`).then(async res => {
+          if (!res.ok) throw new Error(`API error: ${res.status}`);
+          const result = await res.json();
+          if (result.status && result.result?.data) {
+            setData(result);
+            addLog("Data successfully analyzed.");
+            return result;
+          } else {
+            throw new Error(result.message || "Failed to analyze link.");
+          }
+        }),
+        {
+          loading: 'Analyzing content...',
+          success: 'Content successfully analyzed!',
+          error: (err) => `Analysis failed: ${err.message}`,
+        }
+      );
     } catch (error: any) {
       addLog(`Fetch Error: ${error.message}`);
     } finally {
@@ -96,7 +128,7 @@ export default function TikTokDownloaderPage() {
 
   const handleDownload = async (downloadUrl: string, type: string, index?: number) => {
     if (!downloadUrl) {
-      addLog("Download Error: Link not found.");
+      toast.error("Download Error", { description: "Link not found." });
       return;
     }
     
@@ -108,35 +140,29 @@ export default function TikTokDownloaderPage() {
       const timestamp = new Date().getTime();
       const downloadApiUrl = `/api/download?url=${encodeURIComponent(downloadUrl)}&filename=${filename}&v=${timestamp}`;
       
-      const res = await fetch(downloadApiUrl);
-      if (!res.ok) throw new Error(`Download API returned ${res.status}`);
+      toast.info(`Preparing ${type.toUpperCase()}...`, {
+        description: "Your download will start shortly.",
+        duration: 2000
+      });
+
+      addLog(`starting ${type.toUpperCase()} download...`);
       
-      const blob = await res.blob();
-      const blobUrl = window.URL.createObjectURL(blob);
+      // Faster: Using hidden anchor + direct click to trigger native download stream
       const a = document.createElement('a');
-      a.style.display = 'none';
-      a.href = blobUrl;
-      
-      // The extension is now mostly handled by the Content-Disposition header in API
-      // but we set it here as a fallback
-      let ext = ".mp4";
-      if (type === "audio") ext = ".mp3";
-      if (type === "slide") ext = ".jpg";
-      
-      a.download = `${filename}${ext}`;
+      a.href = downloadApiUrl;
+      a.download = `${filename}.${type === "audio" ? "mp3" : type === "hd" || type === "wm" ? "mp4" : "jpg"}`;
       document.body.appendChild(a);
       a.click();
+      document.body.removeChild(a);
       
       setTimeout(() => {
-        window.URL.revokeObjectURL(blobUrl);
-        document.body.removeChild(a);
-      }, 100);
+        addLog(`${type.toUpperCase()} download triggered.`);
+        setDownloadLoading(stateKey, false);
+      }, 1500);
       
-      addLog(`${type.toUpperCase()} downloaded successfully.`);
     } catch (error: any) {
       console.error(error);
-      addLog(`Download Exception: ${error.message}`);
-    } finally {
+      toast.error(`Download Failed: ${error.message}`);
       setDownloadLoading(stateKey, false);
     }
   };
@@ -190,7 +216,9 @@ export default function TikTokDownloaderPage() {
             <p className="text-[10px] text-muted-foreground font-black uppercase tracking-[0.25em] mt-1">HD Video & Photo Downloader</p>
           </div>
         </div>
-        <Badge className="bg-primary/20 text-primary border-none text-[8px] font-black uppercase tracking-widest px-3 py-1">V3.5 DB ENABLED</Badge>
+        <Badge className={`border-none text-[8px] font-black uppercase tracking-widest px-3 py-1 transition-colors ${dbStatus ? 'bg-primary/20 text-primary' : 'bg-destructive/10 text-destructive'}`}>
+          {dbStatus ? "V3.5 DB ENABLED" : "DB OFFLINE"}
+        </Badge>
       </motion.div>
 
       {/* INPUT SECTION */}

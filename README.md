@@ -1,7 +1,6 @@
 # neipzyy
 
-Ada bug tuh masian ni list bugnya
-Bug thumbnail, bug ketika pencet button download delay banget downloadnya abis itu yang hd video malah jadi .mp3 lagi benerin lagii buat web yang maximal 
+Bugnya masi sama thumbnailnya kok gituu ya tolong teliti lagii dan tambahkan popup filter fungsinya mendeteksi itu url tiktok atau bukan supaya aku bisa tidur nyenyak
 
 ## Getting Started
 
