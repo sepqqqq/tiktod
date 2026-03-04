@@ -57,7 +57,16 @@ export default function TikTokDownloaderPage() {
   const [errorLog, setErrorLog] = useState<string[]>([]);
   const [selectedPhotos, setSelectedPhotos] = useState<number[]>([]);
   const [downloadingStates, setDownloadingStates] = useState<Record<string, boolean>>({});
+  const [dbStatus, setDbStatus] = useState<boolean>(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  useState(() => {
+    // Initial DB check
+    fetch("/api/tiktok?check=db")
+      .then(r => r.json())
+      .then(d => setDbStatus(!!d.enabled))
+      .catch(() => setDbStatus(false));
+  });
 
   const addLog = (msg: string) => {
     setErrorLog(prev => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev].slice(0, 5));
@@ -108,35 +117,25 @@ export default function TikTokDownloaderPage() {
       const timestamp = new Date().getTime();
       const downloadApiUrl = `/api/download?url=${encodeURIComponent(downloadUrl)}&filename=${filename}&v=${timestamp}`;
       
-      const res = await fetch(downloadApiUrl);
-      if (!res.ok) throw new Error(`Download API returned ${res.status}`);
+      addLog(`starting ${type.toUpperCase()} download...`);
       
-      const blob = await res.blob();
-      const blobUrl = window.URL.createObjectURL(blob);
+      // Faster: Using hidden anchor + direct click to trigger native download stream
       const a = document.createElement('a');
-      a.style.display = 'none';
-      a.href = blobUrl;
-      
-      // The extension is now mostly handled by the Content-Disposition header in API
-      // but we set it here as a fallback
-      let ext = ".mp4";
-      if (type === "audio") ext = ".mp3";
-      if (type === "slide") ext = ".jpg";
-      
-      a.download = `${filename}${ext}`;
+      a.href = downloadApiUrl;
+      a.download = filename; // Browser will try to use this
       document.body.appendChild(a);
       a.click();
+      document.body.removeChild(a);
       
+      // We still want to show success after a short delay since it's a stream
       setTimeout(() => {
-        window.URL.revokeObjectURL(blobUrl);
-        document.body.removeChild(a);
-      }, 100);
+        addLog(`${type.toUpperCase()} download triggered.`);
+        setDownloadLoading(stateKey, false);
+      }, 1500);
       
-      addLog(`${type.toUpperCase()} downloaded successfully.`);
     } catch (error: any) {
       console.error(error);
       addLog(`Download Exception: ${error.message}`);
-    } finally {
       setDownloadLoading(stateKey, false);
     }
   };
@@ -190,7 +189,9 @@ export default function TikTokDownloaderPage() {
             <p className="text-[10px] text-muted-foreground font-black uppercase tracking-[0.25em] mt-1">HD Video & Photo Downloader</p>
           </div>
         </div>
-        <Badge className="bg-primary/20 text-primary border-none text-[8px] font-black uppercase tracking-widest px-3 py-1">V3.5 DB ENABLED</Badge>
+        <Badge className={`border-none text-[8px] font-black uppercase tracking-widest px-3 py-1 transition-colors ${dbStatus ? 'bg-primary/20 text-primary' : 'bg-destructive/10 text-destructive'}`}>
+          {dbStatus ? "V3.5 DB ENABLED" : "DB OFFLINE"}
+        </Badge>
       </motion.div>
 
       {/* INPUT SECTION */}

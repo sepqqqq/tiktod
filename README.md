@@ -1,7 +1,6 @@
 # neipzyy
 
-Ada bug tuh masian ni list bugnya
-Bug thumbnail, bug ketika pencet button download delay banget downloadnya abis itu yang hd video malah jadi .mp3 lagi benerin lagii buat web yang maximal 
+Di preview normal tapi kok di web nggak ya padahal database sama token sudah ambil dari turso
 
 ## Getting Started
 
