@@ -3,10 +3,13 @@ import { createClient } from "@libsql/client/web";
 import * as schema from "./schema";
 
 // Initialize Turso database connection using environment variables
-// The TURSO_DATABASE_URL and TURSO_AUTH_TOKEN are provided at runtime
+// Use a check to prevent build errors when environment variables are missing
+const databaseUrl = process.env.TURSO_DATABASE_URL || "https://placeholder.turso.io";
+const authToken = process.env.TURSO_AUTH_TOKEN;
+
 const turso = createClient({
-  url: process.env.TURSO_DATABASE_URL!,
-  authToken: process.env.TURSO_AUTH_TOKEN,
+  url: databaseUrl,
+  authToken: authToken,
 });
 
 // Export the drizzle instance for use throughout the application

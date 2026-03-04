@@ -1,6 +1,6 @@
 # neipzyy
 
-Err woi bagian instalizing di netlify benerin lagii
+Benerin lagi bagian building
 
 ## Getting Started
 

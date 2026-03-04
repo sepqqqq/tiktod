@@ -4,6 +4,8 @@ import { downloads } from "@/server/db/schema";
 import { eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const url = searchParams.get("url");
