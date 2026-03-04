@@ -71,9 +71,16 @@ export async function GET(request: NextRequest) {
         const result = await response.json();
         if (result.status && result.result?.data) {
           data = result;
-          // Fix cover if it's a slideshow but cover is missing/avatar
-          if (data.result.data.images?.length > 0 && (!data.result.data.cover || data.result.data.cover.includes("avatar"))) {
-             data.result.data.cover = data.result.data.images[0];
+          // Robust Cover Selection
+          const apiData = data.result.data;
+          // If images exist (slideshow), prioritize the first image as thumbnail
+          if (apiData.images?.length > 0) {
+            apiData.cover = apiData.images[0];
+          } 
+          // If no images, check if current cover is an avatar or missing
+          else if (!apiData.cover || apiData.cover.includes("avatar") || apiData.cover.includes("musically")) {
+            // Try to find a real video cover
+            apiData.cover = apiData.origin_cover || apiData.cover || "";
           }
         }
       }
@@ -89,30 +96,32 @@ export async function GET(request: NextRequest) {
         const result = await response.json();
         
         if (result.code === 0 && result.data) {
+          const resData = result.data;
           // Normalize TikWM data
           data = {
             status: true,
             result: {
               data: {
-                id: result.data.id,
-                title: result.data.title,
-                hdplay: result.data.hdplay || result.data.play || "",
-                wmplay: result.data.wmplay || result.data.play || "",
-                play: result.data.play || "",
-                music: result.data.music || result.data.music_info?.play || "",
+                id: resData.id,
+                title: resData.title,
+                hdplay: resData.hdplay || resData.play || "",
+                wmplay: resData.wmplay || resData.play || "",
+                play: resData.play || "",
+                music: resData.music || resData.music_info?.play || "",
                 music_info: {
-                  title: result.data.music_info?.title || result.data.title || "Music",
-                  play: result.data.music_info?.play || result.data.music || "",
-                  cover: result.data.music_info?.cover || result.data.cover || "",
-                  author: result.data.music_info?.author || result.data.author?.nickname || "Author",
+                  title: resData.music_info?.title || resData.title || "Music",
+                  play: resData.music_info?.play || resData.music || "",
+                  cover: resData.music_info?.cover || resData.cover || "",
+                  author: resData.music_info?.author || resData.author?.nickname || "Author",
                 },
                 author: {
-                  nickname: result.data.author?.nickname || "User",
-                  avatar: result.data.author?.avatar || "",
-                  unique_id: result.data.author?.unique_id || "",
+                  nickname: resData.author?.nickname || "User",
+                  avatar: resData.author?.avatar || "",
+                  unique_id: resData.author?.unique_id || "",
                 },
-                images: result.data.images || [],
-                cover: result.data.images?.length > 0 ? result.data.images[0] : (result.data.cover || ""),
+                images: resData.images || [],
+                // Ensure cover is correct for TikWM too
+                cover: resData.images?.length > 0 ? resData.images[0] : (resData.cover || resData.origin_cover || ""),
               }
             }
           };
@@ -124,6 +133,14 @@ export async function GET(request: NextRequest) {
 
     if (!data) {
       throw new Error("TikTok API is currently unstable. Please try another link or wait a moment.");
+    }
+
+    if (data.result.data.images?.length > 0) {
+      // Force the first image as the cover for slideshows
+      data.result.data.cover = data.result.data.images[0];
+    } else if (!data.result.data.cover || data.result.data.cover.includes("avatar")) {
+      // For videos, if cover is still an avatar, try to find the video cover
+      data.result.data.cover = data.result.data.origin_cover || data.result.data.play || "";
     }
 
     // 3. Store in database if successful

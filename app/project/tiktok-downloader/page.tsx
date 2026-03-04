@@ -17,10 +17,12 @@ import {
   Smartphone,
   Zap,
   FileDown,
-  Layers
+  Layers,
+  AlertCircle
 } from "lucide-react";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "sonner";
 
 interface TikTokData {
   creator: string;
@@ -77,8 +79,21 @@ export default function TikTokDownloaderPage() {
   };
 
   const handleFetch = async (targetUrl?: string) => {
-    const finalUrl = targetUrl || url;
-    if (!finalUrl.trim()) return;
+    const finalUrl = (targetUrl || url).trim();
+    if (!finalUrl) {
+      toast.error("Please paste a link first!");
+      return;
+    }
+
+    // TIKTOK URL VALIDATION
+    const tiktokRegex = /tiktok\.com|vt\.tiktok\.com|vm\.tiktok\.com/;
+    if (!tiktokRegex.test(finalUrl)) {
+      toast.error("Invalid Link!", {
+        description: "Please enter a valid TikTok URL.",
+        icon: <AlertCircle className="h-5 w-5 text-destructive" />
+      });
+      return;
+    }
     
     setLoading(true);
     setData(null);
@@ -86,16 +101,24 @@ export default function TikTokDownloaderPage() {
     setErrorLog([]);
 
     try {
-      const res = await fetch(`/api/tiktok?url=${encodeURIComponent(finalUrl)}`);
-      if (!res.ok) throw new Error(`API error: ${res.status}`);
-      const result = await res.json();
-
-      if (result.status && result.result?.data) {
-        setData(result);
-        addLog("Data successfully analyzed.");
-      } else {
-        addLog(`Error: ${result.message || "Invalid data structure"}`);
-      }
+      toast.promise(
+        fetch(`/api/tiktok?url=${encodeURIComponent(finalUrl)}`).then(async res => {
+          if (!res.ok) throw new Error(`API error: ${res.status}`);
+          const result = await res.json();
+          if (result.status && result.result?.data) {
+            setData(result);
+            addLog("Data successfully analyzed.");
+            return result;
+          } else {
+            throw new Error(result.message || "Failed to analyze link.");
+          }
+        }),
+        {
+          loading: 'Analyzing content...',
+          success: 'Content successfully analyzed!',
+          error: (err) => `Analysis failed: ${err.message}`,
+        }
+      );
     } catch (error: any) {
       addLog(`Fetch Error: ${error.message}`);
     } finally {
@@ -105,7 +128,7 @@ export default function TikTokDownloaderPage() {
 
   const handleDownload = async (downloadUrl: string, type: string, index?: number) => {
     if (!downloadUrl) {
-      addLog("Download Error: Link not found.");
+      toast.error("Download Error", { description: "Link not found." });
       return;
     }
     
@@ -117,17 +140,21 @@ export default function TikTokDownloaderPage() {
       const timestamp = new Date().getTime();
       const downloadApiUrl = `/api/download?url=${encodeURIComponent(downloadUrl)}&filename=${filename}&v=${timestamp}`;
       
+      toast.info(`Preparing ${type.toUpperCase()}...`, {
+        description: "Your download will start shortly.",
+        duration: 2000
+      });
+
       addLog(`starting ${type.toUpperCase()} download...`);
       
       // Faster: Using hidden anchor + direct click to trigger native download stream
       const a = document.createElement('a');
       a.href = downloadApiUrl;
-      a.download = filename; // Browser will try to use this
+      a.download = `${filename}.${type === "audio" ? "mp3" : type === "hd" || type === "wm" ? "mp4" : "jpg"}`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       
-      // We still want to show success after a short delay since it's a stream
       setTimeout(() => {
         addLog(`${type.toUpperCase()} download triggered.`);
         setDownloadLoading(stateKey, false);
@@ -135,7 +162,7 @@ export default function TikTokDownloaderPage() {
       
     } catch (error: any) {
       console.error(error);
-      addLog(`Download Exception: ${error.message}`);
+      toast.error(`Download Failed: ${error.message}`);
       setDownloadLoading(stateKey, false);
     }
   };

@@ -1,6 +1,6 @@
 # neipzyy
 
-Di preview normal tapi kok di web nggak ya padahal database sama token sudah ambil dari turso
+Bugnya masi sama thumbnailnya kok gituu ya tolong teliti lagii dan tambahkan popup filter fungsinya mendeteksi itu url tiktok atau bukan supaya aku bisa tidur nyenyak
 
 ## Getting Started
 

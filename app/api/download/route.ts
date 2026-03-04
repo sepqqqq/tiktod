@@ -31,25 +31,21 @@ export async function GET(request: NextRequest) {
     const lowerFilename = filename.toLowerCase();
     let finalFilename = filename;
 
-    // Detect if it's a video or audio based on the source content type if possible
-    const isVideo = contentType.includes("video");
-    const isAudio = contentType.includes("audio") || contentType.includes("mpeg");
-
     if (lowerFilename.includes("hdvideo") || lowerFilename.includes("withwm")) {
-      finalFilename = `${filename}.mp4`;
+      finalFilename = filename.endsWith(".mp4") ? filename : `${filename}.mp4`;
       contentType = "video/mp4";
     } else if (lowerFilename.includes("mp3")) {
-      finalFilename = `${filename}.mp3`;
+      finalFilename = filename.endsWith(".mp3") ? filename : `${filename}.mp3`;
       contentType = "audio/mpeg";
     } else if (lowerFilename.includes("slide")) {
-      finalFilename = `${filename}-${Date.now()}.jpg`;
+      finalFilename = filename.endsWith(".jpg") ? filename : `${filename}.jpg`;
       contentType = "image/jpeg";
     }
 
-    // Ensure extensions are present and correct
-    if (!finalFilename.endsWith(".mp4") && contentType === "video/mp4") finalFilename += ".mp4";
-    if (!finalFilename.endsWith(".mp3") && contentType === "audio/mpeg") finalFilename += ".mp3";
-    if (!finalFilename.endsWith(".jpg") && contentType === "image/jpeg") finalFilename += ".jpg";
+    // Double check extensions are correct for the contentType
+    if (contentType === "video/mp4" && !finalFilename.toLowerCase().endsWith(".mp4")) finalFilename += ".mp4";
+    if (contentType === "audio/mpeg" && !finalFilename.toLowerCase().endsWith(".mp3")) finalFilename += ".mp3";
+    if (contentType === "image/jpeg" && !finalFilename.toLowerCase().endsWith(".jpg")) finalFilename += ".jpg";
 
     const headers = new Headers();
     headers.set("Content-Type", contentType);
