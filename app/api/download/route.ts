@@ -31,43 +31,39 @@ export async function GET(request: NextRequest) {
     const lowerFilename = filename.toLowerCase();
     let finalFilename = filename;
 
-    if (lowerFilename.includes("hdvideo")) {
-      finalFilename = "neipzyyhdvideo.mp4";
-      contentType = "video/mp4";
-    } else if (lowerFilename.includes("withwm")) {
-      finalFilename = "neipzyywithwm.mp4";
+    // Detect if it's a video or audio based on the source content type if possible
+    const isVideo = contentType.includes("video");
+    const isAudio = contentType.includes("audio") || contentType.includes("mpeg");
+
+    if (lowerFilename.includes("hdvideo") || lowerFilename.includes("withwm")) {
+      finalFilename = `${filename}.mp4`;
       contentType = "video/mp4";
     } else if (lowerFilename.includes("mp3")) {
-      finalFilename = "neipzyymp3.mp3";
+      finalFilename = `${filename}.mp3`;
       contentType = "audio/mpeg";
     } else if (lowerFilename.includes("slide")) {
-      finalFilename = `neipzyyslide-${Date.now()}.jpg`;
+      finalFilename = `${filename}-${Date.now()}.jpg`;
       contentType = "image/jpeg";
-    } else {
-      // Fallback
-      if (contentType.includes("video")) finalFilename = `${filename}.mp4`;
-      else if (contentType.includes("audio")) finalFilename = `${filename}.mp3`;
-      else if (contentType.includes("image")) finalFilename = `${filename}.jpg`;
     }
 
-    // Ensure extensions are present
-    if (contentType === "video/mp4" && !finalFilename.endsWith(".mp4")) finalFilename += ".mp4";
-    if (contentType === "audio/mpeg" && !finalFilename.endsWith(".mp3")) finalFilename += ".mp3";
-    if (contentType === "image/jpeg" && !finalFilename.endsWith(".jpg")) finalFilename += ".jpg";
+    // Ensure extensions are present and correct
+    if (!finalFilename.endsWith(".mp4") && contentType === "video/mp4") finalFilename += ".mp4";
+    if (!finalFilename.endsWith(".mp3") && contentType === "audio/mpeg") finalFilename += ".mp3";
+    if (!finalFilename.endsWith(".jpg") && contentType === "image/jpeg") finalFilename += ".jpg";
 
     const headers = new Headers();
     headers.set("Content-Type", contentType);
+    // Use attachment; filename= so browser triggers download
     headers.set("Content-Disposition", `attachment; filename="${finalFilename}"`);
     headers.set("Access-Control-Allow-Origin", "*");
-    headers.set("Cache-Control", "no-cache, no-store, must-revalidate");
-    headers.set("Pragma", "no-cache");
-    headers.set("Expires", "0");
     
+    // Transfer-Encoding chunked is often better for streaming large files
     const contentLength = response.headers.get("content-length");
     if (contentLength) {
       headers.set("Content-Length", contentLength);
     }
 
+    // Stream the response body directly
     return new Response(response.body, {
       status: 200,
       headers,

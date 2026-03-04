@@ -24,9 +24,9 @@ export async function GET(request: NextRequest) {
     }
 
     const contentType = response.headers.get("content-type") || "image/jpeg";
-    const buffer = await response.arrayBuffer();
+    const body = response.body;
 
-    return new NextResponse(buffer, {
+    return new Response(body, {
       headers: {
         "Content-Type": contentType,
         "Cache-Control": "public, max-age=86400",
@@ -37,6 +37,6 @@ export async function GET(request: NextRequest) {
   } catch (error: any) {
     console.error("[Proxy API] Error for URL:", url, error);
     // Return a fallback or empty pixel if failed
-    return new NextResponse(null, { status: 404 });
+    return new Response(null, { status: 404 });
   }
 }

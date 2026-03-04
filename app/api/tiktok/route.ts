@@ -74,15 +74,15 @@ export async function GET(request: NextRequest) {
               data: {
                 id: result.data.id,
                 title: result.data.title,
-                hdplay: result.data.hdplay,
-                wmplay: result.data.wmplay,
-                play: result.data.play,
-                music: result.data.music,
+                hdplay: result.data.hdplay || result.data.play || "",
+                wmplay: result.data.wmplay || result.data.play || "",
+                play: result.data.play || "",
+                music: result.data.music || result.data.music_info?.play || "",
                 music_info: {
-                  title: result.data.music_info?.title || "Music",
-                  play: result.data.music_info?.play || result.data.music,
-                  cover: result.data.music_info?.cover || "",
-                  author: result.data.music_info?.author || "",
+                  title: result.data.music_info?.title || result.data.title || "Music",
+                  play: result.data.music_info?.play || result.data.music || "",
+                  cover: result.data.music_info?.cover || result.data.cover || "",
+                  author: result.data.music_info?.author || result.data.author?.nickname || "Author",
                 },
                 author: {
                   nickname: result.data.author?.nickname || "User",

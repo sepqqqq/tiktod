@@ -1,6 +1,7 @@
 # neipzyy
 
-Sudah bisaaa woi horre tapi api tiktoknya gak bisa padahal sebelumnya bisaaaa
+Ada bug tuh masian ni list bugnya
+Bug thumbnail, bug ketika pencet button download delay banget downloadnya abis itu yang hd video malah jadi .mp3 lagi benerin lagii buat web yang maximal 
 
 ## Getting Started
 
