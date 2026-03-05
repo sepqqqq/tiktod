@@ -130,10 +130,10 @@ export default function DashboardPage() {
                 Haii Namaku <span className="text-primary font-black uppercase tracking-tighter">Neipzyy</span>, Salam kenal! 👋
               </p>
               <p className="text-sm leading-relaxed text-muted-foreground font-medium">
-                hobiku coding dan nonton, sekarang aku masih sekolah belum kuliah. Karena sering free jadi aku manfaatkan waktu untuk terus evaluasi skill codingku dengan membuat web.
+                Hobiku coding dan nonton, sekarang aku masih sekolah belum kuliah. Karena sering free jadi aku manfaatkan waktu untuk terus evaluasi skill codingku dengan membuat web.
               </p>
               <p className="text-sm leading-relaxed text-muted-foreground font-medium">
-                Berawal dari pengen sekolah rpl tapi masuk jurusan tkj, yang awalnya cumaa pengen jadi webdev malah belajar konfigurasi jaringan. Dan sekarang bisa configuration jaringan dan web<span className="text-foreground font-bold">evaluasi coding</span>semi vibe.
+                Berawal dari pengen sekolah rpl tapi masuk jurusan tkj, yang awalnya cumaa pengen jadi webdev malah belajar konfigurasi jaringan. Dan sekarang bisa configuration jaringan dan web <span className="text-foreground font-bold"> evaluasi coding </span>semi vibe.
               </p>
             </div>
             
