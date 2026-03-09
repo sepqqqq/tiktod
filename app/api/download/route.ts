@@ -41,6 +41,7 @@ export async function GET(request: NextRequest) {
     const isAudio = lowerFilename.includes("mp3") || 
                     lowerFilename.includes("audio") ||
                     lowerFilename.includes("music") ||
+                    lowerFilename.includes("ytmusic") ||
                     lowerFilename.includes("ttmp3");
 
     if (isVideo) {

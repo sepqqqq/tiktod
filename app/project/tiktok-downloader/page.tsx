@@ -16,6 +16,8 @@ import {
   FileDown,
   Layers,
   XCircle,
+  CheckCircle2,
+  Circle
 } from "lucide-react";
 import { 
   Dialog, 
@@ -29,6 +31,7 @@ import {
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 // --- TIKTOK INTERFACES ---
 interface TikTokData {
@@ -65,6 +68,7 @@ export default function TikTokDownloaderPage() {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<TikTokData | null>(null);
   const [downloadingStates, setDownloadingStates] = useState<Record<string, boolean>>({});
+  const [selectedPhotos, setSelectedPhotos] = useState<number[]>([]);
   const [showFilterDialog, setShowFilterDialog] = useState(false);
   const [logs, setLogs] = useState<{time: string, msg: string}[]>([]);
 
@@ -113,6 +117,7 @@ export default function TikTokDownloaderPage() {
     const finalUrl = cleanUrl(rawUrl);
     setLoading(true);
     setData(null); 
+    setSelectedPhotos([]);
     addLog(`Analyzing link: ${finalUrl.substring(0, 30)}...`);
     try {
       const timestamp = new Date().getTime();
@@ -144,6 +149,12 @@ export default function TikTokDownloaderPage() {
     setDownloadLoading(stateKey, true);
     addLog(`Preparing ${type.toUpperCase()} download for content ${data.result.data.id}`);
     
+    // Immediate feedback for user
+    toast.info(`Preparing ${type.toUpperCase()}...`, {
+      description: "Your download will start shortly.",
+      duration: 2000
+    });
+
     try {
       const videoId = data.result.data.id || "neipzyy";
       let filename = `neipzyyhdvideo-${videoId}`;
@@ -154,23 +165,17 @@ export default function TikTokDownloaderPage() {
       const timestamp = new Date().getTime();
       const downloadApiUrl = `/api/download?url=${encodeURIComponent(downloadUrl)}&filename=${filename}&v=${timestamp}`;
       
-      toast.info(`Preparing ${type.toUpperCase()}...`, {
-        description: "Your download will start shortly.",
-        duration: 2000
-      });
-      
       const a = document.createElement('a');
       a.href = downloadApiUrl;
-      const extension = type === "audio" ? "mp3" : type === "hd" || type === "wm" ? "mp4" : "jpg";
-      a.download = `${filename}.${extension}`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       
+      // Delay to simulate preparation and reset loading state
       setTimeout(() => {
         setDownloadLoading(stateKey, false);
         addLog(`${type.toUpperCase()} download triggered successfully.`);
-      }, 1500);
+      }, 2000);
     } catch (error: any) {
       addLog(`Download error: ${error.message}`);
       toast.error(`Download Failed: ${error.message}`);
@@ -178,12 +183,51 @@ export default function TikTokDownloaderPage() {
     }
   };
 
+  const toggleSelectPhoto = (index: number) => {
+    setSelectedPhotos(prev => 
+      prev.includes(index) 
+        ? prev.filter(i => i !== index) 
+        : [...prev, index]
+    );
+  };
+
   const downloadAllPhotos = async () => {
     if (!data?.result.data.images) return;
+    setDownloadLoading("all-photos", true);
+    addLog(`Preparing to download all ${data.result.data.images.length} photos...`);
+    
+    toast.info("Preparing All Photos...", {
+      description: "Starting batch download sequence.",
+      duration: 3000
+    });
+
     for (let i = 0; i < data.result.data.images.length; i++) {
       const photoUrl = data.result.data.images[i];
       await handleDownload(photoUrl, "slide", i);
+      // Small delay between downloads to prevent browser blocking
+      await new Promise(resolve => setTimeout(resolve, 500));
     }
+    
+    setDownloadLoading("all-photos", false);
+  };
+
+  const downloadSelectedPhotos = async () => {
+    if (!data?.result.data.images || selectedPhotos.length === 0) return;
+    setDownloadLoading("selected-photos", true);
+    addLog(`Batch downloading ${selectedPhotos.length} selected photos...`);
+    
+    toast.info("Preparing Selection...", {
+      description: `Downloading ${selectedPhotos.length} selected photos.`,
+      duration: 3000
+    });
+
+    for (const index of selectedPhotos) {
+      const photoUrl = data.result.data.images[index];
+      await handleDownload(photoUrl, "slide", index);
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+    
+    setDownloadLoading("selected-photos", false);
   };
 
   return (
@@ -243,6 +287,7 @@ export default function TikTokDownloaderPage() {
               exit={{ opacity: 0, y: -20 }}
               className="space-y-6"
             >
+              {/* PROFILE CARD */}
               <div className="flex items-start gap-4 p-5 rounded-3xl bg-card/40 border border-primary/5 shadow-sm">
                   <div className="relative aspect-[3/4] w-20 rounded-2xl overflow-hidden border border-primary/10 flex-shrink-0 bg-muted shadow-lg shadow-black/20">
                     <Image 
@@ -269,35 +314,103 @@ export default function TikTokDownloaderPage() {
                   </div>
               </div>
 
-              {(!data.result.data.images || data.result.data.images.length === 0) ? (
+              {/* PHOTO SLIDE SECTION */}
+              {data.result.data.images && data.result.data.images.length > 0 ? (
+                <div className="space-y-6">
+                  {/* BUTTONS AT TOP */}
+                  <div className="grid grid-cols-2 gap-3">
+                      <Button 
+                        onClick={downloadAllPhotos} 
+                        disabled={downloadingStates["all-photos"]}
+                        className="h-12 bg-primary hover:bg-primary/90 text-white font-black uppercase tracking-widest text-[9px] rounded-2xl shadow-lg shadow-primary/20"
+                      >
+                        {downloadingStates["all-photos"] ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" /> : <FileDown className="h-3.5 w-3.5 mr-2" />} 
+                        {downloadingStates["all-photos"] ? "Preparing..." : `All Photos (${data.result.data.images.length})`}
+                      </Button>
+                      <Button variant="secondary" disabled={downloadingStates["audio"]} onClick={() => handleDownload(data.result.data.music_info?.play || data.result.data.music, "audio")} className="h-12 bg-secondary/50 hover:bg-secondary text-foreground/80 font-bold uppercase tracking-widest text-[9px] rounded-2xl">
+                        {downloadingStates["audio"] ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" /> : <Music className="h-3.5 w-3.5 mr-2 text-primary" />} 
+                        {downloadingStates["audio"] ? "Preparing..." : "Background MP3"}
+                      </Button>
+                  </div>
+
+                  {/* ENLARGED SLIDER WITH CHECKBOXES */}
+                  <div className="flex gap-4 overflow-x-auto pb-4 px-1 scrollbar-hide snap-x snap-mandatory">
+                    {data.result.data.images.map((img, i) => (
+                      <motion.div 
+                        key={i} 
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: i * 0.05 }}
+                        onClick={() => toggleSelectPhoto(i)}
+                        className={cn(
+                          "relative min-w-[180px] aspect-[4/5] rounded-3xl overflow-hidden border transition-all cursor-pointer snap-center shadow-lg group",
+                          selectedPhotos.includes(i) ? "border-primary ring-2 ring-primary/40 shadow-primary/30" : "border-primary/10"
+                        )}
+                      >
+                        <Image 
+                          src={`/api/proxy?url=${encodeURIComponent(img)}`} 
+                          alt={`Photo ${i + 1}`} 
+                          fill 
+                          className="object-cover transition-transform group-hover:scale-105" 
+                          unoptimized 
+                        />
+                        
+                        {/* SELECTION CHECKMARK OVERLAY */}
+                        <div className="absolute top-4 right-4 z-10">
+                           {selectedPhotos.includes(i) ? (
+                             <div className="bg-primary p-1.5 rounded-full shadow-lg border border-white/20 animate-in zoom-in-50 duration-200">
+                               <CheckCircle2 className="h-5 w-5 text-white" />
+                             </div>
+                           ) : (
+                             <div className="bg-black/30 backdrop-blur-md p-1.5 rounded-full border border-white/20">
+                               <Circle className="h-5 w-5 text-white/70" />
+                             </div>
+                           )}
+                        </div>
+
+                        <div className="absolute bottom-4 left-4">
+                           <Badge className="bg-black/40 backdrop-blur-sm text-[8px] font-black border-none uppercase tracking-widest">{i + 1}</Badge>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+
+                  {/* BOLD SELECT BUTTON (FULL WIDTH - PREPARING STATE) */}
+                  <Button 
+                    onClick={downloadSelectedPhotos}
+                    disabled={selectedPhotos.length === 0 || downloadingStates["selected-photos"]}
+                    className="h-14 w-full bg-primary hover:bg-primary/90 text-white font-black uppercase tracking-widest text-[10px] rounded-2xl group flex justify-between px-6 shadow-lg shadow-primary/20"
+                  >
+                    <span className="flex items-center gap-2">
+                      {downloadingStates["selected-photos"] ? <Loader2 className="h-5 w-5 animate-spin" /> : <Download className="h-5 w-5" />} 
+                      {downloadingStates["selected-photos"] ? "Preparing Selection..." : `Download Selected (${selectedPhotos.length})`}
+                    </span>
+                    <Layers className="h-5 w-5" />
+                  </Button>
+                </div>
+              ) : (
+                /* VIDEO RESULT (STAYS THE SAME FOR QUALITY) */
                 <div className="grid gap-3">
                   <Button 
                     disabled={downloadingStates["hd"]}
                     onClick={() => handleDownload(data.result.data.hdplay || data.result.data.play, "hd")}
-                    className="h-12 bg-primary hover:bg-primary/90 text-white font-black uppercase tracking-widest text-[10px] rounded-2xl group flex justify-between px-6"
+                    className="h-14 w-full bg-primary hover:bg-primary/90 text-white font-black uppercase tracking-widest text-[10px] rounded-2xl group flex justify-between px-6 shadow-lg shadow-primary/20"
                   >
                     <span className="flex items-center gap-2">
-                      <Video className="h-4 w-4" /> {downloadingStates["hd"] ? "Processing..." : "Download Video HD"}
+                      <Video className="h-4 w-4" /> {downloadingStates["hd"] ? "Preparing HD Video..." : "Download Video HD"}
                     </span>
                     {downloadingStates["hd"] ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
                   </Button>
                   <div className="grid grid-cols-2 gap-3">
                       <Button variant="outline" disabled={downloadingStates["wm"]} onClick={() => handleDownload(data.result.data.wmplay || data.result.data.play, "wm")} className="h-12 border-primary/10 hover:bg-primary/5 text-foreground/80 font-bold uppercase tracking-widest text-[9px] rounded-2xl">
-                        {downloadingStates["wm"] ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" /> : <Smartphone className="h-3.5 w-3.5 mr-2 text-primary" />} With WM
+                        {downloadingStates["wm"] ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" /> : <Smartphone className="h-3.5 w-3.5 mr-2 text-primary" />} 
+                        {downloadingStates["wm"] ? "Preparing..." : "With WM"}
                       </Button>
                       <Button variant="secondary" disabled={downloadingStates["audio"]} onClick={() => handleDownload(data.result.data.music_info?.play || data.result.data.music, "audio")} className="h-12 bg-secondary/50 hover:bg-secondary text-foreground/80 font-bold uppercase tracking-widest text-[9px] rounded-2xl">
-                        {downloadingStates["audio"] ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" /> : <Music className="h-3.5 w-3.5 mr-2 text-primary" />} Audio MP3
+                        {downloadingStates["audio"] ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" /> : <Music className="h-3.5 w-3.5 mr-2 text-primary" />} 
+                        {downloadingStates["audio"] ? "Preparing..." : "Audio MP3"}
                       </Button>
                   </div>
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 gap-3">
-                    <Button onClick={downloadAllPhotos} className="h-12 bg-primary hover:bg-primary/90 text-white font-black uppercase tracking-widest text-[9px] rounded-2xl">
-                      <FileDown className="h-3.5 w-3.5 mr-2" /> All Photos ({data.result.data.images.length})
-                    </Button>
-                    <Button variant="secondary" disabled={downloadingStates["audio"]} onClick={() => handleDownload(data.result.data.music_info?.play || data.result.data.music, "audio")} className="h-12 bg-secondary/50 hover:bg-secondary text-foreground/80 font-bold uppercase tracking-widest text-[9px] rounded-2xl">
-                      {downloadingStates["audio"] ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" /> : <Music className="h-3.5 w-3.5 mr-2 text-primary" />} Background MP3
-                    </Button>
                 </div>
               )}
             </motion.div>

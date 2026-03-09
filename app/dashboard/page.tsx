@@ -24,6 +24,8 @@ import { motion } from "framer-motion";
 
 export default function DashboardPage() {
   const frontendSkills = [
+    { name: "HTML5", level: 95, icon: "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/html5/html5-original.svg" },
+    { name: "CSS3", level: 92, icon: "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/css3/css3-original.svg" },
     { name: "JavaScript", level: 90, icon: "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/javascript/javascript-original.svg" },
     { name: "React", level: 88, icon: "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/react/react-original.svg" },
   ];
@@ -129,10 +131,10 @@ export default function DashboardPage() {
                 Haii Namaku <span className="text-primary font-black uppercase tracking-tighter">Neipzyy</span>, Salam kenal! 👋
               </p>
               <p className="text-sm leading-relaxed text-muted-foreground font-medium">
-                Hobiku coding dan nonton, sekarang aku masih sekolah belum kuliah. Karena sering free jadi aku manfaatkan waktu untuk terus evaluasi skill codingku dengan membuat web.
+                Hobiku coding dan nonton, sekarang aku masih sekolah belum kuliah. Karena sering free, jadi aku manfaatkan waktu untuk terus evaluasi coding dan membangun alat-alat digital yang bermanfaat.
               </p>
               <p className="text-sm leading-relaxed text-muted-foreground font-medium">
-                Berawal dari pengen sekolah rpl tapi masuk jurusan tkj, yang awalnya cumaa pengen jadi webdev malah belajar konfigurasi jaringan. Dan sekarang bisa configuration jaringan dan web <span className="text-foreground font-bold"> evaluasi coding </span>semi vibe.
+                Berawal dari rasa penasaran tentang bagaimana internet bekerja, kini saya mendedikasikan waktu untuk menguasai berbagai teknologi modern. Saya fokus pada <span className="text-foreground font-bold">pengembangan aplikasi yang efisien</span> dan antarmuka pengguna yang memanjakan mata.
               </p>
             </div>
             

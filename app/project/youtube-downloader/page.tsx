@@ -113,13 +113,18 @@ export default function YoutubeDownloaderPage() {
   const handleDownloadVideo = async (resolution: string) => {
     setDownloadLoading(`video-${resolution}`, true);
     addLog(`Preparing ${resolution}p video download...`);
+    
+    // Immediate feedback
+    toast.info(`Preparing ${resolution}p...`, { 
+      description: "Download sequence initiated.",
+      duration: 3000
+    });
+
     try {
       const res = await fetch(`/api/youtube/download?url=${encodeURIComponent(url)}&resolution=${resolution}&type=video`);
       const result = await res.json();
       
       if (result.download_url) {
-        toast.info(`Preparing ${resolution}p...`, { description: "Download will start shortly." });
-        
         // Extract video ID for filename
         const videoIdMatch = url.match(/(?:v=|\/)([0-9A-Za-z_-]{11})/);
         const videoId = videoIdMatch ? videoIdMatch[1] : "neipzyy";
@@ -127,7 +132,6 @@ export default function YoutubeDownloaderPage() {
         
         const a = document.createElement('a');
         a.href = `/api/download?url=${encodeURIComponent(result.download_url)}&filename=${filename}`;
-        a.download = `${filename}.mp4`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -135,7 +139,7 @@ export default function YoutubeDownloaderPage() {
         setTimeout(() => {
           setDownloadLoading(`video-${resolution}`, false);
           addLog(`${resolution}p video download triggered.`);
-        }, 2000);
+        }, 3000);
       } else {
         throw new Error("Failed to get download link");
       }
@@ -149,20 +153,24 @@ export default function YoutubeDownloaderPage() {
   const handleDownloadAudio = async () => {
     setDownloadLoading("audio", true);
     addLog(`Preparing MP3 audio download...`);
+    
+    // Immediate feedback
+    toast.info(`Preparing Music...`, { 
+      description: "Extracting audio stream.",
+      duration: 3000
+    });
+
     try {
       const res = await fetch(`/api/youtube/download?url=${encodeURIComponent(url)}&type=audio`);
       const result = await res.json();
       
       if (result.download_url) {
-        toast.info(`Preparing MP3...`, { description: "Download will start shortly." });
-        
         const videoIdMatch = url.match(/(?:v=|\/)([0-9A-Za-z_-]{11})/);
         const videoId = videoIdMatch ? videoIdMatch[1] : "neipzyy";
-        const filename = `neipzyyyymusic-${videoId}`;
+        const filename = `neipzyyytmusic-${videoId}`;
 
         const a = document.createElement('a');
         a.href = `/api/download?url=${encodeURIComponent(result.download_url)}&filename=${filename}`;
-        a.download = `${filename}.mp3`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -170,7 +178,7 @@ export default function YoutubeDownloaderPage() {
         setTimeout(() => {
           setDownloadLoading("audio", false);
           addLog(`MP3 audio download triggered.`);
-        }, 2000);
+        }, 3000);
       } else {
         throw new Error("Failed to get download link");
       }
@@ -297,7 +305,7 @@ export default function YoutubeDownloaderPage() {
                             className="h-12 bg-secondary/50 hover:bg-secondary text-foreground/80 font-bold uppercase tracking-widest text-[9px] rounded-2xl"
                          >
                             {downloadingStates["audio"] ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" /> : <Music className="h-3.5 w-3.5 mr-2 text-primary" />}
-                            Audio (MP3)
+                            {downloadingStates["audio"] ? "Preparing..." : "Music (MP3)"}
                          </Button>
                       </div>
                   </div>
