@@ -15,7 +15,8 @@ import {
   Palette,
   Heart,
   Rocket,
-  Instagram
+  Instagram,
+  Youtube
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -239,7 +240,7 @@ export default function DashboardPage() {
          initial={{ opacity: 0 }}
          whileInView={{ opacity: 1 }}
          viewport={{ once: true }}
-         className="pt-8"
+         className="pt-8 space-y-4"
       >
         <Link href="/project/tiktok-downloader" className="block group">
            <Card className="border-primary/20 bg-primary/5 hover:bg-primary/10 transition-all rounded-3xl p-6 overflow-hidden relative">
@@ -251,6 +252,24 @@ export default function DashboardPage() {
                  <div>
                     <h3 className="text-xl font-black uppercase tracking-tight text-foreground">TikTok Downloader v3</h3>
                     <p className="text-[10px] text-muted-foreground font-black uppercase tracking-widest mt-1">HD Video, MP3, and Photo Slide Support</p>
+                 </div>
+                 <div className="flex items-center gap-2 text-primary text-[10px] font-black uppercase tracking-widest group-hover:gap-3 transition-all">
+                    Try Now <ArrowRight size={14} />
+                 </div>
+              </div>
+           </Card>
+        </Link>
+
+        <Link href="/project/youtube-downloader" className="block group">
+           <Card className="border-primary/20 bg-primary/5 hover:bg-primary/10 transition-all rounded-3xl p-6 overflow-hidden relative">
+              <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform text-primary">
+                 <Youtube size={80} />
+              </div>
+              <div className="space-y-4 relative z-10">
+                 <Badge className="bg-primary/20 text-primary border-none text-[8px] font-black uppercase tracking-widest px-3 py-1">Hot Tool</Badge>
+                 <div>
+                    <h3 className="text-xl font-black uppercase tracking-tight text-foreground">YouTube Downloader PRO</h3>
+                    <p className="text-[10px] text-muted-foreground font-black uppercase tracking-widest mt-1">MP4 1080p, MP3 Audio, and Fast Info Analysis</p>
                  </div>
                  <div className="flex items-center gap-2 text-primary text-[10px] font-black uppercase tracking-widest group-hover:gap-3 transition-all">
                     Try Now <ArrowRight size={14} />

@@ -48,6 +48,11 @@ const nextConfig: NextConfig = {
         hostname: "*.tiktokv.com",
         pathname: "/**",
       },
+      {
+        protocol: "https",
+        hostname: "i.ytimg.com",
+        pathname: "/**",
+      },
     ],
   },
   typescript: {

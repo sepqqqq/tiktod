@@ -1,6 +1,9 @@
 # neipzyy
 
-Dari pengamatan ku sepertinya ini masalahnya di database yang nyimpan cache video sebelumnyaa jadi kek thumbnail pp itu ngambil fotonya dari database dan intinya ini dari analisaku di databasenya sih soalnya pas aku awal awal download thumbnail normal nah terus pas aku ganti link thumbnail video sebelumnya Masi ke bawa di video terbaru dan video atau slide selanjutnya itu make thumbnail video yang pertama kali
+Tambahkan lagi developer log dan multi photo slide mobile optimazed untuk yang tiktok kalo yang youtube multi photo slide ganti multi resolution and bitrate gituu sesuaikan lagii
+O iya tambahkan untuk nama filenya sekarang ganti kek gini 
+Untuk TT neipzyyhdvideo-id neipzyywithwm-id neipzyyttmp3-id 
+Untuk yt neipzyyytvideo-id neipzyyyymusic-id
 
 ## Getting Started
 

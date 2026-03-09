@@ -20,12 +20,12 @@ const projectList = [
   },
   {
     id: "youtube",
-    title: "YouTube Tools",
-    description: "Easily download YouTube videos in various formats and qualities.",
+    title: "YouTube PRO",
+    description: "High-performance YouTube video and audio downloader (FHD/MP3).",
     icon: "https://upload.wikimedia.org/wikipedia/commons/e/ef/Youtube_logo.png",
-    url: "#",
-    status: "Planned",
-    features: ["MP4 (4K)", "MP3 Audio", "Playlist Support"]
+    url: "/project/youtube-downloader",
+    status: "Active",
+    features: ["MP4 (1080p)", "MP3 Audio", "Fast Analysis"]
   },
   {
     id: "facebook",

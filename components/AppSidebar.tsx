@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Home, Video, Github, Mail, Instagram, Rocket, ExternalLink, LucideIcon } from "lucide-react";
+import { Home, Video, Github, Mail, Instagram, Rocket, ExternalLink, LucideIcon, Youtube } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -38,6 +38,11 @@ const projects = [
     title: "TikTok Downloader",
     url: "/project/tiktok-downloader",
     icon: Video,
+  },
+  {
+    title: "YouTube Downloader",
+    url: "/project/youtube-downloader",
+    icon: Youtube,
   },
 ];
 

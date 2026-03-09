@@ -31,10 +31,22 @@ export async function GET(request: NextRequest) {
     const lowerFilename = filename.toLowerCase();
     let finalFilename = filename;
 
-    if (lowerFilename.includes("hdvideo") || lowerFilename.includes("withwm")) {
+    const isVideo = lowerFilename.includes("_tk-") || 
+                    lowerFilename.includes("_yt-") || 
+                    lowerFilename.includes("hdvideo") || 
+                    lowerFilename.includes("withwm") || 
+                    lowerFilename.includes("ytvideo") ||
+                    lowerFilename.includes("-yt-");
+
+    const isAudio = lowerFilename.includes("mp3") || 
+                    lowerFilename.includes("audio") ||
+                    lowerFilename.includes("music") ||
+                    lowerFilename.includes("ttmp3");
+
+    if (isVideo) {
       finalFilename = filename.endsWith(".mp4") ? filename : `${filename}.mp4`;
       contentType = "video/mp4";
-    } else if (lowerFilename.includes("mp3")) {
+    } else if (isAudio) {
       finalFilename = filename.endsWith(".mp3") ? filename : `${filename}.mp3`;
       contentType = "audio/mpeg";
     } else if (lowerFilename.includes("slide")) {

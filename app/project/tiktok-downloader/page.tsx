@@ -1,26 +1,21 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
 import { 
   Download, 
   Video, 
   Music, 
   Search, 
   Loader2, 
-  ChevronRight, 
-  ChevronLeft,
   Smartphone,
   Zap,
   FileDown,
   Layers,
-  AlertCircle,
   XCircle,
-  History
 } from "lucide-react";
 import { 
   Dialog, 
@@ -34,8 +29,8 @@ import {
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
-import { useEffect } from "react";
 
+// --- TIKTOK INTERFACES ---
 interface TikTokData {
   creator: string;
   status: boolean;
@@ -65,27 +60,28 @@ interface TikTokData {
 }
 
 export default function TikTokDownloaderPage() {
+  const [dbStatus, setDbStatus] = useState<boolean>(false);
   const [url, setUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<TikTokData | null>(null);
-  const [errorLog, setErrorLog] = useState<string[]>([]);
-  const [selectedPhotos, setSelectedPhotos] = useState<number[]>([]);
   const [downloadingStates, setDownloadingStates] = useState<Record<string, boolean>>({});
-  const [dbStatus, setDbStatus] = useState<boolean>(false);
   const [showFilterDialog, setShowFilterDialog] = useState(false);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    // Initial DB check
-    fetch("/api/tiktok?check=db")
-      .then(r => r.json())
-      .then(d => setDbStatus(!!d.enabled))
-      .catch(() => setDbStatus(false));
-  }, []);
+  const [logs, setLogs] = useState<{time: string, msg: string}[]>([]);
 
   const addLog = (msg: string) => {
-    setErrorLog(prev => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev].slice(0, 5));
+    const time = new Date().toLocaleTimeString('en-US', { hour12: true, hour: '2-digit', minute: '2-digit', second: '2-digit' }).toLowerCase();
+    setLogs(prev => [{ time, msg }, ...prev].slice(0, 5));
   };
+
+  useEffect(() => {
+    fetch("/api/tiktok?check=db")
+      .then(r => r.json())
+      .then(d => {
+        setDbStatus(!!d.enabled);
+        if (d.enabled) addLog("Database connection established.");
+      })
+      .catch(() => setDbStatus(false));
+  }, []);
 
   const setDownloadLoading = (type: string, isLoading: boolean) => {
     setDownloadingStates(prev => ({ ...prev, [type]: isLoading }));
@@ -94,8 +90,6 @@ export default function TikTokDownloaderPage() {
   const cleanUrl = (input: string) => {
     try {
       const urlObj = new URL(input.trim());
-      // Tracker params like is_from_webapp, etc. cause duplicate DB entries
-      // Only keep the main part of the URL
       const normalized = urlObj.origin + urlObj.pathname;
       return normalized;
     } catch {
@@ -103,45 +97,37 @@ export default function TikTokDownloaderPage() {
     }
   };
 
-  const handleFetch = async (targetUrl?: string) => {
-    const rawUrl = (targetUrl || url).trim();
+  const handleFetch = async () => {
+    const rawUrl = url.trim();
     if (!rawUrl) {
       toast.error("Please paste a link first!");
       return;
     }
 
-    // TIKTOK URL VALIDATION
     const tiktokRegex = /tiktok\.com|vt\.tiktok\.com|vm\.tiktok\.com/;
     if (!tiktokRegex.test(rawUrl)) {
       setShowFilterDialog(true);
       return;
     }
     
-    // Normalize URL before fetching
     const finalUrl = cleanUrl(rawUrl);
-    
     setLoading(true);
     setData(null); 
-    setSelectedPhotos([]);
-    setErrorLog([]);
-
+    addLog(`Analyzing link: ${finalUrl.substring(0, 30)}...`);
     try {
       const timestamp = new Date().getTime();
       const res = await fetch(`/api/tiktok?url=${encodeURIComponent(finalUrl)}&t=${timestamp}`);
-      
       if (!res.ok) throw new Error(`API error: ${res.status}`);
-      
       const result = await res.json();
-      
       if (result.status && result.result?.data) {
         setData(result);
-        addLog(`Successfully analyzed: ${finalUrl.substring(0, 30)}...`);
+        addLog(`Successfully analyzed content from @${result.result.data.author.unique_id}`);
         toast.success('Content successfully analyzed!');
       } else {
         throw new Error(result.message || "Failed to analyze link.");
       }
     } catch (error: any) {
-      addLog(`Fetch Error: ${error.message}`);
+      addLog(`Error: ${error.message}`);
       toast.error(`Analysis failed: ${error.message}`);
     } finally {
       setLoading(false);
@@ -149,16 +135,22 @@ export default function TikTokDownloaderPage() {
   };
 
   const handleDownload = async (downloadUrl: string, type: string, index?: number) => {
-    if (!downloadUrl) {
+    if (!downloadUrl || !data) {
       toast.error("Download Error", { description: "Link not found." });
       return;
     }
     
     const stateKey = index !== undefined ? `${type}-${index}` : type;
     setDownloadLoading(stateKey, true);
+    addLog(`Preparing ${type.toUpperCase()} download for content ${data.result.data.id}`);
     
     try {
-      const filename = type === "hd" ? "neipzyyhdvideo" : type === "wm" ? "neipzyywithwm" : type === "audio" ? "neipzyymp3" : `neipzyyslide-${index || '0'}`;
+      const videoId = data.result.data.id || "neipzyy";
+      let filename = `neipzyyhdvideo-${videoId}`;
+      if (type === "wm") filename = `neipzyywithwm-${videoId}`;
+      if (type === "audio") filename = `neipzyyttmp3-${videoId}`;
+      if (type === "slide") filename = `neipzyyslide-${videoId}-${index}`;
+      
       const timestamp = new Date().getTime();
       const downloadApiUrl = `/api/download?url=${encodeURIComponent(downloadUrl)}&filename=${filename}&v=${timestamp}`;
       
@@ -166,40 +158,23 @@ export default function TikTokDownloaderPage() {
         description: "Your download will start shortly.",
         duration: 2000
       });
-
-      addLog(`starting ${type.toUpperCase()} download...`);
       
-      // Faster: Using hidden anchor + direct click to trigger native download stream
       const a = document.createElement('a');
       a.href = downloadApiUrl;
-      a.download = `${filename}.${type === "audio" ? "mp3" : type === "hd" || type === "wm" ? "mp4" : "jpg"}`;
+      const extension = type === "audio" ? "mp3" : type === "hd" || type === "wm" ? "mp4" : "jpg";
+      a.download = `${filename}.${extension}`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       
       setTimeout(() => {
-        addLog(`${type.toUpperCase()} download triggered.`);
         setDownloadLoading(stateKey, false);
+        addLog(`${type.toUpperCase()} download triggered successfully.`);
       }, 1500);
-      
     } catch (error: any) {
-      console.error(error);
+      addLog(`Download error: ${error.message}`);
       toast.error(`Download Failed: ${error.message}`);
       setDownloadLoading(stateKey, false);
-    }
-  };
-
-  const togglePhotoSelection = (index: number) => {
-    setSelectedPhotos(prev => 
-      prev.includes(index) ? prev.filter(i => i !== index) : [...prev, index]
-    );
-  };
-
-  const downloadSelectedPhotos = async () => {
-    if (!data?.result.data.images || selectedPhotos.length === 0) return;
-    for (const index of selectedPhotos) {
-      const photoUrl = data.result.data.images[index];
-      await handleDownload(photoUrl, "slide", index);
     }
   };
 
@@ -208,16 +183,6 @@ export default function TikTokDownloaderPage() {
     for (let i = 0; i < data.result.data.images.length; i++) {
       const photoUrl = data.result.data.images[i];
       await handleDownload(photoUrl, "slide", i);
-    }
-  };
-
-  const scrollPhotos = (direction: 'left' | 'right') => {
-    if (scrollContainerRef.current) {
-      const scrollAmount = 250;
-      scrollContainerRef.current.scrollBy({
-        left: direction === 'left' ? -scrollAmount : scrollAmount,
-        behavior: 'smooth'
-      });
     }
   };
 
@@ -231,11 +196,11 @@ export default function TikTokDownloaderPage() {
       >
         <div className="flex items-center gap-4">
           <div className="p-3 bg-primary/10 rounded-2xl border border-primary/20">
-             <Video className="text-primary h-6 w-6" />
+             <Layers className="text-primary h-6 w-6" />
           </div>
           <div>
-            <h1 className="text-2xl font-black tracking-tight text-foreground uppercase leading-none">TikTok <span className="text-primary">PRO</span></h1>
-            <p className="text-[10px] text-muted-foreground font-black uppercase tracking-[0.25em] mt-1">HD Video & Photo Downloader</p>
+            <h1 className="text-2xl font-black tracking-tight text-foreground uppercase leading-none">Media <span className="text-primary">PRO</span></h1>
+            <p className="text-[10px] text-muted-foreground font-black uppercase tracking-[0.25em] mt-1">TikTok Downloader</p>
           </div>
         </div>
         <Badge className={`border-none text-[8px] font-black uppercase tracking-widest px-3 py-1 transition-colors ${dbStatus ? 'bg-primary/20 text-primary' : 'bg-destructive/10 text-destructive'}`}>
@@ -243,43 +208,42 @@ export default function TikTokDownloaderPage() {
         </Badge>
       </motion.div>
 
-      {/* INPUT SECTION */}
-      <Card className="border-primary/10 bg-card/40 backdrop-blur-2xl rounded-3xl overflow-hidden shadow-2xl">
-        <CardContent className="p-8 space-y-4">
-          <div className="relative group">
-            <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
-              <Search className="h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+      <div className="space-y-8">
+        {/* INPUT SECTION */}
+        <Card className="border-primary/10 bg-card/40 backdrop-blur-2xl rounded-3xl overflow-hidden shadow-2xl">
+          <CardContent className="p-8 space-y-4">
+            <div className="relative group">
+              <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+                <Search className="h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+              </div>
+              <Input
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleFetch()}
+                placeholder="Paste TikTok link here..."
+                className="h-14 pl-12 bg-background/50 border-primary/10 focus:ring-primary rounded-2xl text-sm font-medium"
+              />
             </div>
-            <Input
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleFetch()}
-              placeholder="Paste TikTok link here..."
-              className="h-14 pl-12 bg-background/50 border-primary/10 focus:ring-primary rounded-2xl text-sm font-medium"
-            />
-          </div>
-          <Button 
-            onClick={() => handleFetch()} 
-            disabled={loading}
-            className="w-full h-14 text-[10px] font-black rounded-2xl bg-primary hover:bg-primary/90 text-white transition-all uppercase tracking-[0.2em] shadow-lg shadow-primary/20"
-          >
-            {loading ? <Loader2 className="h-4 w-4 animate-spin mr-3" /> : "Analyze Link Now"}
-          </Button>
-        </CardContent>
-      </Card>
+            <Button 
+              onClick={handleFetch} 
+              disabled={loading}
+              className="w-full h-14 text-[10px] font-black rounded-2xl bg-primary hover:bg-primary/90 text-white transition-all uppercase tracking-[0.2em] shadow-lg shadow-primary/20"
+            >
+              {loading ? <Loader2 className="h-4 w-4 animate-spin mr-3" /> : "Analyze TikTok Now"}
+            </Button>
+          </CardContent>
+        </Card>
 
-      {/* RESULT SECTION */}
-      <AnimatePresence mode="wait">
-        {data && data.result.data && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="space-y-8"
-          >
-            {/* COMPACT AUTHOR INFO */}
-            <div className="space-y-6">
-               <div className="flex items-start gap-4 p-5 rounded-3xl bg-card/40 border border-primary/5 shadow-sm">
+        {/* RESULT SECTION */}
+        <AnimatePresence mode="wait">
+          {data && data.result.data && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="space-y-6"
+            >
+              <div className="flex items-start gap-4 p-5 rounded-3xl bg-card/40 border border-primary/5 shadow-sm">
                   <div className="relative aspect-[3/4] w-20 rounded-2xl overflow-hidden border border-primary/10 flex-shrink-0 bg-muted shadow-lg shadow-black/20">
                     <Image 
                       src={`/api/proxy?url=${encodeURIComponent(data.result.data.cover)}`} 
@@ -290,188 +254,115 @@ export default function TikTokDownloaderPage() {
                     />
                   </div>
                   <div className="space-y-3 py-1 flex-1 min-w-0">
-                     <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2">
                         <div className="relative h-7 w-7 rounded-full overflow-hidden ring-2 ring-primary/20 bg-muted shadow-sm">
                           <Image src={`/api/proxy?url=${encodeURIComponent(data.result.data.author.avatar)}`} alt="Avatar" fill className="object-cover" unoptimized />
                         </div>
                         <div className="flex flex-col">
-                           <span className="text-[12px] font-black text-foreground uppercase tracking-tight leading-none">{data.result.data.author.nickname}</span>
-                           <span className="text-[9px] text-muted-foreground font-medium">@{data.result.data.author.unique_id}</span>
+                            <span className="text-[12px] font-black text-foreground uppercase tracking-tight leading-none">{data.result.data.author.nickname}</span>
+                            <span className="text-[9px] text-muted-foreground font-medium">@{data.result.data.author.unique_id}</span>
                         </div>
-                     </div>
-                     <p className="text-[13px] font-medium text-foreground/80 leading-relaxed line-clamp-3">
+                      </div>
+                      <p className="text-[13px] font-medium text-foreground/80 leading-relaxed line-clamp-3">
                         {data.result.data.title || "No description provided."}
-                     </p>
+                      </p>
                   </div>
-               </div>
+              </div>
 
-               {/* ACTION BUTTONS (COMPACT) */}
-               {(!data.result.data.images || data.result.data.images.length === 0) ? (
-                 <div className="grid gap-3">
-                    <Button 
-                       disabled={downloadingStates["hd"]}
-                       onClick={() => handleDownload(data.result.data.hdplay || data.result.data.play, "hd")}
-                       className="h-12 bg-primary hover:bg-primary/90 text-white font-black uppercase tracking-widest text-[10px] rounded-2xl group flex justify-between px-6"
-                    >
-                       <span className="flex items-center gap-2">
-                          <Video className="h-4 w-4" /> 
-                          {downloadingStates["hd"] ? "Processing HD..." : "Download Video HD"}
-                       </span>
-                       {downloadingStates["hd"] ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4 group-hover:translate-y-1 transition-transform" />}
+              {(!data.result.data.images || data.result.data.images.length === 0) ? (
+                <div className="grid gap-3">
+                  <Button 
+                    disabled={downloadingStates["hd"]}
+                    onClick={() => handleDownload(data.result.data.hdplay || data.result.data.play, "hd")}
+                    className="h-12 bg-primary hover:bg-primary/90 text-white font-black uppercase tracking-widest text-[10px] rounded-2xl group flex justify-between px-6"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Video className="h-4 w-4" /> {downloadingStates["hd"] ? "Processing..." : "Download Video HD"}
+                    </span>
+                    {downloadingStates["hd"] ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                  </Button>
+                  <div className="grid grid-cols-2 gap-3">
+                      <Button variant="outline" disabled={downloadingStates["wm"]} onClick={() => handleDownload(data.result.data.wmplay || data.result.data.play, "wm")} className="h-12 border-primary/10 hover:bg-primary/5 text-foreground/80 font-bold uppercase tracking-widest text-[9px] rounded-2xl">
+                        {downloadingStates["wm"] ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" /> : <Smartphone className="h-3.5 w-3.5 mr-2 text-primary" />} With WM
+                      </Button>
+                      <Button variant="secondary" disabled={downloadingStates["audio"]} onClick={() => handleDownload(data.result.data.music_info?.play || data.result.data.music, "audio")} className="h-12 bg-secondary/50 hover:bg-secondary text-foreground/80 font-bold uppercase tracking-widest text-[9px] rounded-2xl">
+                        {downloadingStates["audio"] ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" /> : <Music className="h-3.5 w-3.5 mr-2 text-primary" />} Audio MP3
+                      </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3">
+                    <Button onClick={downloadAllPhotos} className="h-12 bg-primary hover:bg-primary/90 text-white font-black uppercase tracking-widest text-[9px] rounded-2xl">
+                      <FileDown className="h-3.5 w-3.5 mr-2" /> All Photos ({data.result.data.images.length})
                     </Button>
-                    <div className="grid grid-cols-2 gap-3">
-                       <Button 
-                          variant="outline"
-                          disabled={downloadingStates["wm"]}
-                          onClick={() => handleDownload(data.result.data.wmplay || data.result.data.play, "wm")}
-                          className="h-12 border-primary/10 hover:bg-primary/5 text-foreground/80 font-bold uppercase tracking-widest text-[9px] rounded-2xl"
-                       >
-                          {downloadingStates["wm"] ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" /> : <Smartphone className="h-3.5 w-3.5 mr-2 text-primary" />}
-                          With WM
-                       </Button>
-                       <Button 
-                          variant="secondary"
-                          disabled={downloadingStates["audio"]}
-                          onClick={() => handleDownload(data.result.data.music_info?.play || data.result.data.music, "audio")}
-                          className="h-12 bg-secondary/50 hover:bg-secondary text-foreground/80 font-bold uppercase tracking-widest text-[9px] rounded-2xl"
-                       >
-                          {downloadingStates["audio"] ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" /> : <Music className="h-3.5 w-3.5 mr-2 text-primary" />}
-                          Audio MP3
-                       </Button>
-                    </div>
-                 </div>
-               ) : (
-                 <div className="space-y-6">
-                    <div className="grid grid-cols-2 gap-3">
-                       <Button 
-                          onClick={downloadAllPhotos}
-                          className="h-12 bg-primary hover:bg-primary/90 text-white font-black uppercase tracking-widest text-[9px] rounded-2xl"
-                       >
-                          <FileDown className="h-3.5 w-3.5 mr-2" /> All Photos ({data.result.data.images.length})
-                       </Button>
-                       <Button 
-                          variant="secondary"
-                          disabled={downloadingStates["audio"]}
-                          onClick={() => handleDownload(data.result.data.music_info?.play || data.result.data.music, "audio")}
-                          className="h-12 bg-secondary/50 hover:bg-secondary text-foreground/80 font-bold uppercase tracking-widest text-[9px] rounded-2xl"
-                       >
-                          {downloadingStates["audio"] ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" /> : <Music className="h-3.5 w-3.5 mr-2 text-primary" />}
-                          Background MP3
-                       </Button>
-                    </div>
-                    
-                    {/* PHOTO SLIDE CAROUSEL */}
-                    <div className="space-y-5">
-                       <div className="flex items-center justify-between px-2">
-                          <h4 className="text-[10px] font-black uppercase text-muted-foreground tracking-[0.2em]">Swipe to View & Select</h4>
-                          <div className="flex gap-2">
-                             <Button variant="outline" size="icon" className="h-8 w-8 rounded-full border-primary/10" onClick={() => scrollPhotos('left')}><ChevronLeft size={16} /></Button>
-                             <Button variant="outline" size="icon" className="h-8 w-8 rounded-full border-primary/10" onClick={() => scrollPhotos('right')}><ChevronRight size={16} /></Button>
-                          </div>
-                       </div>
-                       
-                       <div 
-                         ref={scrollContainerRef}
-                         className="flex gap-4 overflow-x-auto no-scrollbar pb-4 scroll-smooth"
-                       >
-                         {data.result.data.images.map((img, idx) => (
-                           <motion.div 
-                             key={idx}
-                             whileHover={{ scale: 1.02 }}
-                             whileTap={{ scale: 0.98 }}
-                             className="flex-shrink-0"
-                           >
-                             <div 
-                               className={`relative w-48 h-72 rounded-3xl overflow-hidden cursor-pointer border-2 transition-all duration-300 ${
-                                 selectedPhotos.includes(idx) ? 'border-primary ring-4 ring-primary/20' : 'border-primary/5 hover:border-primary/30'
-                               }`}
-                               onClick={() => togglePhotoSelection(idx)}
-                             >
-                               <Image src={`/api/proxy?url=${encodeURIComponent(img)}`} alt={`p-${idx}`} fill className="object-cover" unoptimized />
-                               <div className="absolute top-4 right-4 bg-background/40 backdrop-blur-md p-1 rounded-lg">
-                                  <Checkbox checked={selectedPhotos.includes(idx)} className="h-5 w-5 bg-white/20 border-white/40 data-[state=checked]:bg-primary" />
-                               </div>
-                               {downloadingStates[`slide-${idx}`] && (
-                                 <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] flex items-center justify-center">
-                                    <Loader2 className="h-8 w-8 text-primary animate-spin" />
-                                 </div>
-                               )}
-                               <div className="absolute bottom-4 left-4 bg-black/60 backdrop-blur-sm px-3 py-1 rounded-full">
-                                  <span className="text-[10px] font-black text-white">{idx + 1}</span>
-                               </div>
-                             </div>
-                           </motion.div>
-                         ))}
-                       </div>
-                       <Button 
-                          disabled={selectedPhotos.length === 0 || Object.values(downloadingStates).some(v => v)}
-                          onClick={downloadSelectedPhotos}
-                          className="w-full h-12 bg-primary hover:bg-primary/90 text-white font-black uppercase tracking-widest text-[9px] rounded-2xl shadow-lg shadow-primary/20"
-                       >
-                          {Object.values(downloadingStates).some(v => v) ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Layers className="h-3.5 w-3.5 mr-2" />}
-                          Download Selected ({selectedPhotos.length})
-                       </Button>
-                    </div>
-                 </div>
-               )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* ERROR LOG CONSOLE */}
-      <AnimatePresence>
-        {errorLog.length > 0 && (
-          <motion.div 
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            className="p-4 rounded-2xl bg-black/80 border border-primary/20 font-mono text-[9px] space-y-1 overflow-hidden"
-          >
-            <p className="text-primary font-black border-b border-primary/20 pb-1 mb-2 tracking-tighter uppercase">Developer Log</p>
-            {errorLog.map((log, i) => (
-              <p key={i} className="text-white/60 lowercase">{log}</p>
-            ))}
-          </motion.div>
-        )}
-      </AnimatePresence>
-
+                    <Button variant="secondary" disabled={downloadingStates["audio"]} onClick={() => handleDownload(data.result.data.music_info?.play || data.result.data.music, "audio")} className="h-12 bg-secondary/50 hover:bg-secondary text-foreground/80 font-bold uppercase tracking-widest text-[9px] rounded-2xl">
+                      {downloadingStates["audio"] ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" /> : <Music className="h-3.5 w-3.5 mr-2 text-primary" />} Background MP3
+                    </Button>
+                </div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+      
       {/* FOOTER INFO */}
-      <div className="space-y-4">
-         <div className="flex items-center gap-4 p-4 rounded-3xl bg-primary/5 border border-primary/10">
+      <div className="space-y-6 pt-4">
+         {/* DEVELOPER LOG */}
+         <AnimatePresence>
+           {logs.length > 0 && (
+             <motion.div
+               initial={{ opacity: 0, y: 10 }}
+               animate={{ opacity: 1, y: 0 }}
+               className="rounded-3xl border border-primary/10 bg-card/30 p-6 backdrop-blur-xl"
+             >
+               <h4 className="mb-4 text-[10px] font-black uppercase tracking-[0.2em] text-primary">Developer Log</h4>
+               <div className="space-y-2 font-mono text-[9px] text-muted-foreground/80">
+                 {logs.map((log, i) => (
+                   <div key={i} className="flex gap-2">
+                     <span className="text-primary/60">[{log.time}]</span>
+                     <span className="break-all">{log.msg}</span>
+                   </div>
+                 ))}
+               </div>
+             </motion.div>
+           )}
+         </AnimatePresence>
+
+         <div className="flex items-center gap-4 p-5 rounded-3xl bg-primary/5 border border-primary/10">
             <Zap className="text-primary h-5 w-5" />
             <div>
                <p className="text-[10px] font-black text-foreground uppercase tracking-wider">Fast & Secure Processing</p>
                <p className="text-[9px] text-muted-foreground font-medium uppercase tracking-widest mt-0.5">Built for speed and quality by Hananeipzyy</p>
             </div>
          </div>
+
          <div className="grid grid-cols-2 gap-4">
-            <div className="p-4 rounded-2xl bg-card/40 border border-primary/5 flex flex-col items-center gap-2 text-center">
-               <Layers size={20} className="text-primary/60" />
-               <span className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">Multi-Photo Slide</span>
+            <div className="flex flex-col items-center justify-center gap-3 p-6 rounded-3xl bg-card/40 border border-primary/5 text-center">
+               <Layers className="h-5 w-5 text-primary/60" />
+               <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Multi-Photo Slide</p>
             </div>
-            <div className="p-4 rounded-2xl bg-card/40 border border-primary/5 flex flex-col items-center gap-2 text-center">
-               <Smartphone size={20} className="text-primary/60" />
-               <span className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">Mobile Optimized</span>
+            <div className="flex flex-col items-center justify-center gap-3 p-6 rounded-3xl bg-card/40 border border-primary/5 text-center">
+               <Smartphone className="h-5 w-5 text-primary/60" />
+               <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Mobile Optimized</p>
             </div>
          </div>
       </div>
 
-      {/* FILTER POPUP (MODAL) */}
+      {/* FILTER DIALOG */}
       <Dialog open={showFilterDialog} onOpenChange={setShowFilterDialog}>
         <DialogContent className="max-w-[350px] rounded-3xl border-primary/20 bg-card/95 backdrop-blur-xl">
            <DialogHeader className="items-center text-center space-y-4">
               <div className="p-4 bg-destructive/10 rounded-full">
                  <XCircle className="h-10 w-10 text-destructive" />
               </div>
-              <DialogTitle className="text-xl font-black uppercase tracking-tight">Invalid Link Detected!</DialogTitle>
+              <DialogTitle className="text-xl font-black uppercase tracking-tight">Invalid Link!</DialogTitle>
               <DialogDescription className="text-[11px] font-medium leading-relaxed uppercase tracking-wider text-muted-foreground">
-                 Oops! The link you pasted is not a valid TikTok URL. Please make sure you copy the link directly from the TikTok app.
+                 Please make sure you copy a valid TikTok URL.
               </DialogDescription>
            </DialogHeader>
            <DialogFooter className="sm:justify-center mt-4">
               <DialogClose asChild>
-                 <Button className="w-full h-12 rounded-2xl bg-primary hover:bg-primary/90 text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/20">
+                 <Button className="w-full h-12 rounded-2xl bg-primary hover:bg-primary/90 text-[10px] font-black uppercase tracking-widest">
                     I Understand
                  </Button>
               </DialogClose>
